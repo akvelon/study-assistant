@@ -1,0 +1,8 @@
+fastapi==0.87.0
+logging_json==0.2.1
+numpy==1.24.2
+openai==0.27.4
+pydantic
+python-dotenv==0.21.0
+uvicorn==0.21.1
+uvicorn[standard]
