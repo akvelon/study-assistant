@@ -1,9 +1,24 @@
 from fastapi import APIRouter, Response
+from pydantic import BaseModel
 
 messages_router = APIRouter(prefix='/messages', tags=[""])
 
-@messages_router.get('/')
-async def chats_history(chat_id: str = None):
+class Message(BaseModel):
+    id: str
+    role: str
+    timestamp: int
+    content: str
+    attachments: list = []
+
+class MessagesRequest(BaseModel):
+    messages: list[Message] = []
+
+class MessagesResponse(BaseModel):
+    messages: list[Message] = []
+    quickReplies: list[str] = []
+
+@messages_router.post('/')
+async def messages(messages: MessagesRequest) -> MessagesResponse:
     data = """
 {
     "messages": [

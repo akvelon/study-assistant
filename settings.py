@@ -6,6 +6,8 @@ from pydantic import BaseSettings
 class Settings(BaseSettings):
     # OpenAI API key
     openai_key: str
+    # API root path
+    root_path: str
 
     port: int = 8080
 
