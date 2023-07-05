@@ -51,9 +51,10 @@ assistant = StudyAssistant()
 @messages_router.post('/')
 async def messages(request: MessagesRequest) -> MessagesResponse:
     messages = request.messages
-    # pass messages to study assistant class
-    assistant_response = assistant.generateResponse(messages)
-    # add the response to the end of the messages list
-    messages.append(assistant_response)
+    if len(messages) > 0:
+        # pass messages to study assistant class
+        assistant_response = assistant.generateResponse(messages)
+        # add the response to the end of the messages list
+        messages.append(assistant_response)
     
-    return MessagesResponse(messages=messages, quickReplies=[""])
+    return MessagesResponse(messages=messages, quickReplies=[])
