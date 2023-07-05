@@ -56,4 +56,4 @@ async def messages(request: MessagesRequest) -> MessagesResponse:
     # add the response to the end of the messages list
     messages.append(assistant_response)
     
-    return MessagesResponse(messages=messages, quickReplies=[""])
+    return MessagesResponse(messages=messages, quickReplies=[])
