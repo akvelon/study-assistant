@@ -69,7 +69,7 @@ def find_main_content(soup: BeautifulSoup) -> list[BeautifulSoup]:
         id = skip_link.parent.get("href")
         # Exclude leading #
         main_content = soup.find(id=id[1:])
-        # Return main content and all next siblings
+        # Return main content and all next siblings (if any)
         return (
             main_content.find_all(recursive=False) + main_content.find_next_siblings()
         )
@@ -88,15 +88,17 @@ def extract_main_content(tags: list[BeautifulSoup]) -> list[BeautifulSoup]:
     return elements
 
 
-def extract_image_metadata(tags: list[BeautifulSoup]) -> list[dict[str, str | None]]:
+def extract_image_metadata(
+    tags: list[BeautifulSoup], base_url: str
+) -> list[dict[str, str | None]]:
     image_metadata: list[dict[str, str | None]] = []
     for tag in tags:
         if images := tag.find_all("img"):
             for image in images:
                 image_metadata.append(
                     {
-                        "image_src": image.get("src"),
-                        "image_alt": image.get("alt"),
+                        "src": urljoin(base_url, image.get("src")),
+                        "alt": image.get("alt"),
                     }
                 )
     return image_metadata
@@ -143,11 +145,12 @@ def jsonify_document(
     plain_text: str,
 ) -> str:
     document_data = {
-        "document_url": url,
-        "document_title": title,
-        "document_metadata": metadata,
-        "document_image_metadata": image_metadata,
-        "document_plain_text": plain_text,
+        "url": url,
+        "title": title,
+        "type": "school",
+        "metadata": metadata,
+        "image_metadata": image_metadata,
+        "content": plain_text,
     }
     json_data = json.dumps(
         document_data,
@@ -210,14 +213,14 @@ class Crawler:
                 tag.decompose()
             # Find where main content starts
             document_main_content: list[BeautifulSoup] = find_main_content(soup)
-            # Only include user visible content
-            document_main_content = extract_main_content(document_main_content)
 
             # Extract image metadata
             document_image_metadata: list[
                 dict[str, str | None]
-            ] = extract_image_metadata(document_main_content)
+            ] = extract_image_metadata(document_main_content, document_url)
 
+            # Prune non text tags from main content
+            document_main_content = extract_main_content(document_main_content)
             # Extract plain text from main content
             document_plain_text: str = "\n".join(
                 tag.get_text() for tag in document_main_content
@@ -225,7 +228,7 @@ class Crawler:
             document_plain_text = remove_duplicate_eol(document_plain_text)
 
             document_urls: list[str] = extract_urls(soup)
-            document_urls = join_relative_urls(document_urls, self.webpage_url)
+            document_urls = join_relative_urls(document_urls, document_url)
             document_urls = remove_outside_urls(document_urls, self.webpage_url)
 
             # Recursively visit each url in document_urls
