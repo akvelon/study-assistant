@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from pydantic import BaseSettings
 
+
 class Settings(BaseSettings):
     # OpenAI API key
     openai_key: str
@@ -9,7 +10,13 @@ class Settings(BaseSettings):
     # API root path
     root_path: str
 
+    # ChatGPT model
+    chatgpt_model: str = "gpt-3.5-turbo"
+    # OpenAI text embedding model
+    embedding_model: str = "text-embedding-ada-002"
+
     port: int = 8080
+
 
 if os.path.exists(".env"):
     load_dotenv(".env")
