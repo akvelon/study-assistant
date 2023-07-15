@@ -1,0 +1,3 @@
+[MASTER]
+py-version=3.11
+extension-pkg-whitelist=pydantic
