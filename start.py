@@ -1,6 +1,5 @@
+"""Study Assistant app entry point"""
 import uvicorn
-
-from dotenv import load_dotenv
 
 from settings import settings
 
