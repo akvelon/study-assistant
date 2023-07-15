@@ -1,9 +1,11 @@
+"""service settings and dotenv"""
 import os
 from dotenv import load_dotenv
 from pydantic import BaseSettings
 
 
 class Settings(BaseSettings):
+    """Service settings"""
     # OpenAI API key
     openai_key: str
 
