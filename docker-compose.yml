@@ -1,7 +1,10 @@
 version: "3"
 services:
   study-assistant:
-    build: ./
+    build:
+      context: ./
+      args:
+        OPENAI_API_KEY: ${openai_key}
     volumes:
       - data:/data
     ports:
