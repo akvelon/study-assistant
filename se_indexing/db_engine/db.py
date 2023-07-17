@@ -1,5 +1,34 @@
 import sqlite3
 from uuid import uuid4
+from pydantic import BaseModel
+import pickle
+import numpy as np
+class DocumentEntry(BaseModel):
+    id: str
+    url: str
+    title: str
+    type: str
+    metadata: list
+    image_metadata: list
+    content: str
+    summary: str
+    embedding: None = None
+    def __init__(self, id, url, title, type, metadata, image_metadata, content, summary, embedding=None):
+
+        super().__init__(
+            id=id,
+            url=url,
+            title=title,
+            type=type,
+            metadata=eval(metadata),
+            image_metadata=eval(image_metadata),
+            content=content,
+            summary=summary,
+        )
+        self.embedding = np.array(pickle.loads(embedding))
+
+    class Config:
+        fields = {'embedding': {'exclude': True}}
 
 
 class IndexDB:
@@ -52,7 +81,34 @@ class IndexDB:
         self.cursor.execute(sql_create_embedding_table)
 
     def get_documents(self):
-        return []
+        self.cursor.execute("""
+            SELECT
+                documents.id,
+                documents.url,
+                documents.title,
+                documents.type,
+                documents.metadata,
+                documents.image_metadata,
+                documents.content,
+                summaries.summary,
+                embeddings.embedding
+            FROM
+                documents
+            INNER JOIN
+                summaries
+            ON
+                summaries.document_id = documents.id
+            INNER JOIN
+                embeddings 
+            ON 
+                embeddings.summary_id = summaries.id;
+        """)
+        rows = self.cursor.fetchall()
+        documents = []
+        for row in rows:
+            document = DocumentEntry(*row)
+            documents.append(document)
+        return documents
 
     def insert_document(self, document):
         """Add document to indexing database, and return its ID."""

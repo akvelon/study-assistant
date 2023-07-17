@@ -9,3 +9,4 @@ uvicorn[standard]
 requests==2.31.0
 beautifulsoup4==4.12.2
 PyJWT==2.7.0
+scipy==1.11.1
