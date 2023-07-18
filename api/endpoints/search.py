@@ -1,12 +1,13 @@
 import numpy as np
 import openai
 from fastapi import APIRouter
+from scipy import spatial
 from pydantic import BaseModel
 from settings import settings
-from .messages import Message
-from se_indexing.db_engine.config import get_database
 from se_indexing.db_engine.db import DocumentEntry
-from scipy import spatial
+from se_indexing.db_engine.config import get_database
+from .schemas import Message
+
 
 search_router = APIRouter(prefix="/search", tags=[""])
 
@@ -28,34 +29,37 @@ class SearchEngine:
     def __init__(self):
         openai.api_key = settings.openai_key
         self.documents = self.get_documents_from_index()
-
+    '''Get documents from database for Searching'''
     def get_documents_from_index(self):
         db = get_database()
         documents = db.get_documents()
         return documents
-
+    '''Generating embeddings for message content'''
     def generate_embeddings(self, query: SearchQuery):
         vectors = []
-        for message in query.messages:
+        for message in query:
             response = openai.Embedding.create(input=[message.content], model="text-embedding-ada-002")
             vector = response["data"][0]["embedding"]
             vectors.append(np.array(vector))
         return vectors
-
+    '''Calculating cosine similarity, searching and sorting most similar and relevant documents'''
     def search_document(self, embeddings):
         similar_documents = []
         for embedding in embeddings:
-          for document in self.documents:
-            threshold = 0.8
-            cosine_similarity = 1 - spatial.distance.cosine(embedding.T, document.embedding.T)
-            if cosine_similarity > threshold:
-                similar_documents.append(SearchDocument(document=document, similarity=cosine_similarity))
-        response = sorted(similar_documents, key=lambda x: x.similarity, reverse=True)
+            for document in self.documents:
+                threshold = 0.8
+                cosine_similarity = 1 - spatial.distance.cosine(embedding.T, document.embedding.T)
+                if cosine_similarity > threshold:
+                    similar_documents.append(SearchDocument(document=document,
+                                                            similarity=cosine_similarity))
+        response = sorted(similar_documents,
+                          key=lambda x: x.similarity, reverse=True)
         return response
 
 
 search_engine = SearchEngine()
 
+'''POST request with 10 relevant documents'''
 @search_router.post("/", response_model=None)
 async def search_documents(query: SearchQuery) -> SearchResult:
     embeddings = search_engine.generate_embeddings(query)
