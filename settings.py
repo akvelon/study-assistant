@@ -6,6 +6,7 @@ from pydantic import BaseSettings
 
 class Settings(BaseSettings):
     """Service settings"""
+
     # OpenAI API key
     openai_key: str
 
