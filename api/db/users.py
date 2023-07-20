@@ -1,15 +1,19 @@
+"""
+    Users database 
+"""
 import os
 import sqlite3
-import hashlib, uuid
+import hashlib
+import uuid
 from pydantic import BaseModel
 
-
 def get_pass_hash(password: str, salt: str):
+    """Hash password with given salt using sha512 hash"""
     payload = password + salt
-    return hashlib.sha512(payload.encode("utf-8")).hexdigest()
-
+    return hashlib.sha512(payload.encode('utf-8')).hexdigest()
 
 class AuthEntry(BaseModel):
+    """Auth database model"""
     id: int
     email: str
     school_id: int
@@ -24,12 +28,12 @@ class AuthEntry(BaseModel):
             school_id=school_id,
             password_hash=password_hash,
             salt=salt,
-            token=token,
+            token=token
         )
 
-
 class UsersDB:
-    database_path = "data/db/api_db.sqlite"
+    """users.db wrapper"""
+    database_path = "data/db/users.db"
 
     def __init__(self, db_path, db_name):
         os.makedirs(db_path, exist_ok=True)
@@ -43,12 +47,12 @@ class UsersDB:
         except sqlite3.Error as e:
             print(f"Failed to establish connection to database\n{e}")
 
-    # Gurauntees that the connection to the database is closed
     def __del__(self):
         self.connection.commit()
         self.connection.close()
 
     def create_database_if_not_exists(self):
+        """Creates auth_* tables if needed"""
         self.cursor.execute(
             """CREATE TABLE IF NOT EXISTS auth_users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -69,12 +73,17 @@ class UsersDB:
 
         self.connection.commit()
 
+    # TODO: Use user id instead of email for most of the cases except register.
+    # As auth_users and auth_tokens contain the same user id, we should be
+    # able to fetch user entry in a single query
     def get_user(self, email):
-        # TODO: Joins are extremely expensive, instead perform to queries
+        """Get user from by email given"""
+        # TODO: Check joins perf as they may still be expensive,
+        # instead perform two queries:
         # First quary to get user_id form auth_tokens table, then second quary
         # to get user data from auth_users table with user_id.
-        self.cursor.execute(
-            """
+        # Might not be needed after get_user recieves id instead of email
+        self.cursor.execute("""
             SELECT
                 auth_users.id,
                 auth_users.email,
@@ -90,9 +99,7 @@ class UsersDB:
                 auth_users.id = auth_tokens.user_id
             WHERE
                 auth_users.email = ?
-        """,
-            (email,),
-        )
+        """, (email,))
         row = self.cursor.fetchone()
 
         if not row:
@@ -101,30 +108,34 @@ class UsersDB:
         return AuthEntry(*row)
 
     def add_token(self, user_id, token):
-        # Insert token data
+        """Add token for the user id specified"""
         insert_token_sql = """INSERT INTO auth_tokens (user_id, token) VALUES (?, ?)"""
         self.cursor.execute(insert_token_sql, [user_id, token])
 
         self.connection.commit()
 
     def add_user(self, user):
+        """Add a user entry to database"""
         # Hash password
         salt = uuid.uuid4().hex
         password_hash = get_pass_hash(user.password, salt)
 
         # Insert user data
         insert_user_sql = """INSERT INTO auth_users (email, school_id, password_hash, salt) VALUES (?, ?, ?, ?)"""
-        self.cursor.execute(
-            insert_user_sql, [user.email, user.schoolId, password_hash, salt]
-        )
+        self.cursor.execute(insert_user_sql, [user.email, user.schoolId, password_hash, salt])
 
         # Get the last inserted user ID
         user_id = self.cursor.lastrowid
 
         # Finish
         self.connection.commit()
-
         return user_id
 
+    def change_school_id(self, user, new_id):
+        """Replace school id of a user with the given id"""
+        update_query = """UPDATE auth_users SET school_id = ? WHERE id = ?"""
+        self.cursor.execute(update_query, (new_id, user.id))
+
+        self.connection.commit()
 
 users_db = UsersDB("data/db/", "users.db")
