@@ -1,0 +1,47 @@
+[tool.black]
+line-length = 90
+target-version = ['py37']
+include_trailing_comma = false
+
+[tool.pylint.format]
+max-line-length = 90
+
+[tool.pylint.MASTER]
+py-version = '3.11'
+extension-pkg-whitelist = 'pydantic'
+ignore = '.git'
+suggestion-mode = 'yes'
+
+[tool.pylint."MESSAGES CONTROL"]
+disable = '''
+    F0001,
+    R0901,
+    R0902,
+    R0903,
+    R0904,
+    E0401
+'''
+
+[tool.pylint.SPELLING]
+# Limits count of emitted suggestions for spelling mistakes.
+max-spelling-suggestions = 4
+
+# Spelling dictionary name. Available dictionaries: none. To make it work,
+# install the python-enchant package.
+spelling-dict = ''
+
+# List of comma separated words that should not be checked.
+spelling-ignore-words = ''
+
+# A path to a file that contains the private dictionary; one word per line.
+spelling-private-dict-file = ''
+
+# Tells whether to store unknown words to the private dictionary (see the
+# --spelling-private-dict-file option) instead of raising a message.
+spelling-store-unknown-words = 'no'
+
+[tool.pylint.FORMAT]
+max-line-length = 90
+
+[tool.pylint.DESIGN]
+max-args = 11

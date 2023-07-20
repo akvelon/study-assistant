@@ -1,8 +1,11 @@
+"""Search Index database wrapper"""
 import sqlite3
 from uuid import uuid4
 from pydantic import BaseModel
 import pickle
 import numpy as np
+
+
 class DocumentEntry(BaseModel):
     id: str
     url: str
