@@ -3,7 +3,7 @@ import openai
 from settings import settings
 import time
 from api.endpoints.search import search_documents
-from api.endpoints.schemas import MessageAttachment, Message
+from api.endpoints.schemas import MessageAttachment, Message, SearchQuery
 
 openai.api_key = settings.openai_key 
 
@@ -49,18 +49,23 @@ class StudyAssistant(StudyAssistantSettings):
         id = gpt_response["id"]
 
         # search similar documents with user message content
-        search_engine = search_documents(input)
+        search_engine = search_documents(SearchQuery(messages=[input[-1]]))
         found_documents = await search_engine
-        document = found_documents.documents[0]
-        attachment = MessageAttachment(id=document.document.id, title=document.document.title,
-                                       summary=document.document.summary, url=document.document.url,
-                                       image=document.document.image_metadata[0]["src"])
-
+        attachment = None
+        if len(found_documents.documents) > 0:
+            document = found_documents.documents[0]
+            image_src = document.document.image_metadata[0]["src"] if document.document.image_metadata else None
+            attachment = MessageAttachment(id=document.document.id,
+                                           title=document.document.title,
+                                           summary=document.document.summary,
+                                           url=document.document.url,
+                                           image=image_src
+                                           )
         #create and return new message object
         return Message(
             id=id,
             role=response_message["role"],
             timestamp=time.time(),
             content=response_message["content"],
-            attachments=[attachment]
+            attachments=[attachment] if attachment else []
             )
