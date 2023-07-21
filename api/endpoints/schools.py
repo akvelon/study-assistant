@@ -1,16 +1,13 @@
 from fastapi import APIRouter, Response
 from pydantic import BaseModel
 
-schools_router = APIRouter(prefix='/schools', tags=[""])
+from api.endpoints.schemas import School, SchoolsResponse
 
-class School(BaseModel):
-    id: str
-    title: str
-    shortName: str
+schools_router = APIRouter(prefix="/schools", tags=[""])
 
-class SchoolsResponse(BaseModel):
-    schools: list[School] = []
 
-@schools_router.get('/')
+@schools_router.get("/")
 async def schools() -> SchoolsResponse:
-    return SchoolsResponse(schools = [School(id="001", title="Bellevue College", shortName="BC")])
+    return SchoolsResponse(
+        schools=[School(id="001", title="Bellevue College", shortName="BC")]
+    )

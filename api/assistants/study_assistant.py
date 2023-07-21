@@ -2,10 +2,19 @@ from pydantic import BaseSettings
 import openai
 from settings import settings
 import time
-from api.endpoints.search import search_documents
-from api.endpoints.schemas import MessageAttachment, Message, SearchQuery
+from api.endpoints.search import search_documents, SearchQuery
+from api.endpoints.schemas import (
+    MessageAttachment,
+    Message,
+    MessagesRequest,
+    MessagesResponse,
+)
+from api.assistants.history.manager import HistoryManager
+from api.endpoints.user import User
 
-openai.api_key = settings.openai_key 
+history_manager = HistoryManager()
+
+openai.api_key = settings.openai_key
 
 
 class StudyAssistantSettings(BaseSettings):
@@ -20,7 +29,7 @@ class StudyAssistantSettings(BaseSettings):
 
     temperature: float = 0.0
     max_tokens: int = 500
-    
+
     prompt: str = parse_prompt("api/assistants/study_assistant.txt")
 
     name: str = "Study Assistant"
@@ -29,43 +38,54 @@ class StudyAssistantSettings(BaseSettings):
 
 
 class StudyAssistant(StudyAssistantSettings):
-    
-    async def generate_response(self, input: list) -> Message:
-        # places the system prompt at beginning of list
+    async def generate_response(
+        self, request: MessagesRequest, user: User | None
+    ) -> MessagesResponse:
+        # Places the system prompt at beginning of list
         messages = [{"role": "system", "content": self.prompt}]
-        # appends the rest of the conversation
-        for message in input:
+        # Appends the rest of the conversation
+        for message in request.messages:
             messages.append({"role": message.role, "content": message.content})
-     
-        # generate response 
+
+        # Generate response
         gpt_response = openai.ChatCompletion.create(
             model=self.model,
             messages=messages,
             max_tokens=self.max_tokens,
-            temperature=self.temperature
+            temperature=self.temperature,
         )
-        # extract response message and id
-        response_message = gpt_response["choices"][0]["message"]
-        id = gpt_response["id"]
+        # Convert to Message schema
+        response_message = Message(
+            id=gpt_response["id"],
+            role=gpt_response["choices"][0]["message"]["role"],
+            timestamp=time.time(),
+            content=gpt_response["choices"][0]["message"]["content"],
+        )
 
         # search similar documents with user message content
-        search_engine = search_documents(SearchQuery(messages=[input[-1]]))
+        search_engine = search_documents(SearchQuery(messages=[response_message]))
         found_documents = await search_engine
         attachment = None
         if len(found_documents.documents) > 0:
             document = found_documents.documents[0]
-            image_src = document.document.image_metadata[0]["src"] if document.document.image_metadata else None
-            attachment = MessageAttachment(id=document.document.id,
-                                           title=document.document.title,
-                                           summary=document.document.summary,
-                                           url=document.document.url,
-                                           image=image_src
-                                           )
-        #create and return new message object
-        return Message(
-            id=id,
-            role=response_message["role"],
-            timestamp=time.time(),
-            content=response_message["content"],
-            attachments=[attachment] if attachment else []
+            image_src = (
+                document.document.image_metadata[0]["src"]
+                if document.document.image_metadata
+                else None
             )
+            attachment = MessageAttachment(
+                id=document.document.id,
+                title=document.document.title,
+                summary=document.document.summary,
+                url=document.document.url,
+                image=image_src,
+            )
+        # Update ChatGPT attachmentens
+        if attachment:
+            response_message.attachments = [attachment]
+
+        return history_manager.process_messages(request, response_message, user)
+
+
+class UsersMessageMissingException(Exception):
+    pass

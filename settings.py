@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # OpenAI text embedding model
     embedding_model: str = "text-embedding-ada-002"
 
+    # API database
+    db_path: str = "data/db/users.db"
+
     port: int = 8080
 
 
