@@ -7,12 +7,14 @@ from api.db.users import users_db
 
 SECRET_KEY = "temporary_secret_key_73857982"
 
-user_router = APIRouter(prefix='/user', tags=[""])
+user_router = APIRouter(prefix="/user", tags=[""])
+
 
 class User(BaseModel):
     id: int
     email: str = ""
     schoolId: int = 0
+
 
 def get_token(id, email):
     """Create token for given user data"""
@@ -69,6 +71,21 @@ async def get_current_user(token: str = Security(APIKeyHeader(name="Authorizatio
         raise credentials_exception
 
     return User(id=db_user.id, email=db_user.email, schoolId=db_user.school_id)
+
+
+async def get_current_user_optional(
+    token: str | None = Security(APIKeyHeader(name="Authorization", auto_error=False)),
+):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    if token is None:
+        return None
+    else:
+        return await get_current_user(token)
+
 
 import api.endpoints.user.auth
 import api.endpoints.user.school
