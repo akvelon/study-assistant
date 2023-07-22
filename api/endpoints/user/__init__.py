@@ -19,24 +19,27 @@ class User(BaseModel):
 def get_token(id, email):
     """Create token for given user data"""
     payload = {
-        "sub": { "id": id, "email": email },
+        "sub": {"id": id, "email": email},
     }
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
+
 class TokenData(BaseModel):
     """Data available in token"""
+
     id: int
     email: str
 
+
 def check_email(email: str):
     """
-        Email structure: local_part@domain_part
-        Structure of local_part: Any alphanumeric characters, including:
-          . ! # $ % & \ ' * + / = ? ^ _ ` { | } ~ -
-        Structure of domain_part: Any alphanumeric characters, sections
-        separated by a .
+    Email structure: local_part@domain_part
+    Structure of local_part: Any alphanumeric characters, including:
+      . ! # $ % & \ ' * + / = ? ^ _ ` { | } ~ -
+    Structure of domain_part: Any alphanumeric characters, sections
+    separated by a .
     """
-    pattern = r'^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$'
+    pattern = r"^[a-zA-Z0-9.!#$%&\'*+/=?^_`{|}~-]+@[a-zA-Z0-9-]+(?:\.[a-zA-Z0-9-]+)*$"
     if re.match(pattern, email):
         return
     email_exception = HTTPException(

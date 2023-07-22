@@ -7,13 +7,16 @@ import hashlib
 import uuid
 from pydantic import BaseModel
 
+
 def get_pass_hash(password: str, salt: str):
     """Hash password with given salt using sha512 hash"""
     payload = password + salt
-    return hashlib.sha512(payload.encode('utf-8')).hexdigest()
+    return hashlib.sha512(payload.encode("utf-8")).hexdigest()
+
 
 class AuthEntry(BaseModel):
     """Auth database model"""
+
     id: int
     email: str
     school_id: int
@@ -28,11 +31,13 @@ class AuthEntry(BaseModel):
             school_id=school_id,
             password_hash=password_hash,
             salt=salt,
-            token=token
+            token=token,
         )
+
 
 class UsersDB:
     """users.db wrapper"""
+
     database_path = "data/db/users.db"
 
     def __init__(self, db_path, db_name):
@@ -83,7 +88,8 @@ class UsersDB:
         # First quary to get user_id form auth_tokens table, then second quary
         # to get user data from auth_users table with user_id.
         # Might not be needed after get_user recieves id instead of email
-        self.cursor.execute("""
+        self.cursor.execute(
+            """
             SELECT
                 auth_users.id,
                 auth_users.email,
@@ -99,7 +105,9 @@ class UsersDB:
                 auth_users.id = auth_tokens.user_id
             WHERE
                 auth_users.email = ?
-        """, (email,))
+        """,
+            (email,),
+        )
         row = self.cursor.fetchone()
 
         if not row:
@@ -122,7 +130,9 @@ class UsersDB:
 
         # Insert user data
         insert_user_sql = """INSERT INTO auth_users (email, school_id, password_hash, salt) VALUES (?, ?, ?, ?)"""
-        self.cursor.execute(insert_user_sql, [user.email, user.schoolId, password_hash, salt])
+        self.cursor.execute(
+            insert_user_sql, [user.email, user.schoolId, password_hash, salt]
+        )
 
         # Get the last inserted user ID
         user_id = self.cursor.lastrowid
@@ -137,5 +147,6 @@ class UsersDB:
         self.cursor.execute(update_query, (new_id, user.id))
 
         self.connection.commit()
+
 
 users_db = UsersDB("data/db/", "users.db")

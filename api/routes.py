@@ -8,7 +8,6 @@ from api.endpoints.user import user_router
 from api.endpoints.search import search_router
 
 
-
 api_router = APIRouter(prefix="/v1")
 api_router.include_router(health_router)
 api_router.include_router(messages_router)
