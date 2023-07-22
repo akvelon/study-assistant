@@ -1,18 +1,18 @@
+"""Messages endpoint"""
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel
 from typing_extensions import Annotated
 
-from api.endpoints.schemas import Chat, MessagesRequest, MessagesResponse
+from api.endpoints.schemas import MessagesRequest, MessagesResponse
 from api.assistants.study_assistant import StudyAssistant, UsersMessageMissingException
 from api.assistants.history.manager import UnauthorizedUserEditingHistoryException
 from api.db.history import InvalidHistoryException, InvalidChatIdException
-from api.endpoints.user import user_router, User, get_current_user_optional
+from api.endpoints.user import get_current_user_optional
 
 assistant = StudyAssistant()
 messages_router = APIRouter(prefix="/messages", tags=[""])
 
 
-@messages_router.post("/")
+@messages_router.post("/", response_model_exclude_none=True)
 async def messages(
     request: MessagesRequest,
     user: Annotated[str, Depends(get_current_user_optional)],
@@ -32,17 +32,21 @@ async def messages(
             messages=assistant_response.messages,
             quickReplies=assistant_response.quickReplies,
         )
-    except UsersMessageMissingException as e:
-        raise HTTPException(status_code=400, detail=str("User's message missing."))
-    except InvalidHistoryException as e:
-        raise HTTPException(status_code=404, detail=str("Invalid history_id."))
-    except InvalidChatIdException as e:
-        raise HTTPException(status_code=404, detail=str("Invalid chat id or not found."))
-    except UnauthorizedUserEditingHistoryException as e:
+    except UsersMessageMissingException as ex:
+        raise HTTPException(
+            status_code=400, detail=str("User's message missing.")
+        ) from ex
+    except InvalidHistoryException as ex:
+        raise HTTPException(status_code=404, detail=str("Invalid history_id.")) from ex
+    except InvalidChatIdException as ex:
+        raise HTTPException(
+            status_code=404, detail=str("Invalid chat id or not found.")
+        ) from ex
+    except UnauthorizedUserEditingHistoryException as ex:
         raise HTTPException(
             status_code=403, detail=str("Unauthorized user editing history")
-        )
-    except Exception as e:
+        ) from ex
+    except Exception as ex:
         # Safeguard server from crashing.
-        print(e)
-        raise HTTPException(status_code=500, detail=str("Internal server error"))
+        print(ex)
+        raise HTTPException(status_code=500, detail=str("Internal server error")) from ex
