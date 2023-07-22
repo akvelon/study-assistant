@@ -15,16 +15,20 @@ class UserRequest(BaseModel):
     password: str
     schoolId: int = 0
 
+
 class UserResponse(User):
     pass
+
 
 class AuthRequest(BaseModel):
     email: str
     password: str
 
+
 class AuthResponse(BaseModel):
     token: str
     user: UserResponse
+
 
 @user_router.post("/auth")
 async def authenticate_user(credentials: AuthRequest) -> AuthResponse:
@@ -46,7 +50,10 @@ async def authenticate_user(credentials: AuthRequest) -> AuthResponse:
         if user is None:
             raise existence_exception
         if get_pass_hash(credentials.password, user.salt) == user.password_hash:
-            return AuthResponse(token=user.token, user=UserResponse(id=user.id, email=user.email, schoolId=user.school_id))
+            return AuthResponse(
+                token=user.token,
+                user=UserResponse(id=user.id, email=user.email, schoolId=user.school_id),
+            )
         raise credentials_exception
 
     except sqlite3.Error as error:
@@ -58,7 +65,7 @@ async def authenticate_user(credentials: AuthRequest) -> AuthResponse:
         raise connection_exception
 
 
-@user_router.post('/register', status_code=201)
+@user_router.post("/register", status_code=201)
 async def register_user(user: UserRequest) -> AuthResponse:
     """Register a new user with given data"""
     try:
@@ -77,8 +84,13 @@ async def register_user(user: UserRequest) -> AuthResponse:
             users_db.add_token(user_id, token)
 
             db_user = users_db.get_user(user.email)
-    
-            return AuthResponse(token=token, user=UserResponse(id=db_user.id, email=db_user.email, schoolId=db_user.school_id))
+
+            return AuthResponse(
+                token=token,
+                user=UserResponse(
+                    id=db_user.id, email=db_user.email, schoolId=db_user.school_id
+                ),
+            )
         raise duplicate_exception
 
     except sqlite3.Error as error:

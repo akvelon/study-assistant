@@ -70,9 +70,7 @@ def find_main_content(soup: BeautifulSoup) -> list[BeautifulSoup]:
         # Exclude leading #
         main_content = soup.find(id=id[1:])
         # Return main content and all next siblings (if any)
-        return (
-            main_content.find_all(recursive=False) + main_content.find_next_siblings()
-        )
+        return main_content.find_all(recursive=False) + main_content.find_next_siblings()
 
     # Fall back to <body> tag
     return soup.body.find_all()
@@ -215,9 +213,9 @@ class Crawler:
             document_main_content: list[BeautifulSoup] = find_main_content(soup)
 
             # Extract image metadata
-            document_image_metadata: list[
-                dict[str, str | None]
-            ] = extract_image_metadata(document_main_content, document_url)
+            document_image_metadata: list[dict[str, str | None]] = extract_image_metadata(
+                document_main_content, document_url
+            )
 
             # Prune non text tags from main content
             document_main_content = extract_main_content(document_main_content)
