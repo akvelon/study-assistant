@@ -4,8 +4,9 @@ import sys
 import pickle
 import json
 import glob
-
+import multiprocessing
 import openai
+
 from db_engine.config import get_database
 
 
@@ -28,7 +29,10 @@ def get_documents():
         os.path.join(os.getcwd(), document_file) for document_file in document_files
     ]
 
-    return document_files
+    for document in document_files:
+        yield document
+
+    # return document_files
 
 
 # TODO: Implement deleting a document when finished indexing
@@ -76,30 +80,49 @@ def create_embedding_for_summary(summary):
     return embedding
 
 
-with get_database() as db:
-    # db.delete_database()
-    db.create_database_if_not_exists()
+def process_document(document_abspath):
+    db = get_database()
 
-    openai.api_key = settings.openai_key
+    with open(document_abspath, "r") as document_file:
+        print(f"Processing {document_file.name}")
+        document = json.load(document_file)
+        document_content = document["content"]
 
-    for document_abspath in get_documents():
-        document_filename = os.path.basename(document_abspath)
-        print(f"Indexing {document_filename}")
+        # Check if document is already in database
+        if db.find_document_by_url(document["url"]) is None:
+            document_summary = create_summary_for_content(document_content)
+            document_embedding = create_embedding_for_summary(document_summary)
 
-        with open(document_abspath, "r") as document_file:
-            document = json.load(document_file)
-            document_content = document["content"]
+            document_id = db.insert_document(document)
+            summary_id = db.insert_summary(document_id, document_summary)
+            embedding_id = db.insert_embedding(
+                summary_id, settings.embedding_model, document_embedding
+            )
 
-            # Check if document is already in database
-            if db.find_document_by_url(document["url"]) is None:
-                document_summary = create_summary_for_content(document_content)
-                document_embedding = create_embedding_for_summary(document_summary)
+    # TODO: Delete document from documents/ folder
+    # delete_document(document_filename)
 
-                document_id = db.insert_document(document)
-                summary_id = db.insert_summary(document_id, document_summary)
-                embedding_id = db.insert_embedding(
-                    summary_id, settings.embedding_model, document_embedding
-                )
 
-        # TODO: Delete document from documents/ folder
-        # delete_document(document_filename)
+def main():
+    with get_database() as db:
+        db.create_database_if_not_exists()
+
+        openai.api_key = settings.openai_key
+
+        pool = multiprocessing.Pool(processes=8)
+
+        for document_abspath in get_documents():
+            document_filename = os.path.basename(document_abspath)
+            print(f"Indexing {document_filename}")
+
+            # this is so awesome
+            pool.apply_async(
+                process_document,
+                args=(document_abspath,),
+            )
+
+        pool.close()
+        pool.join()
+
+
+main()
