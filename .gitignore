@@ -3,3 +3,4 @@ venv
 data
 .env
 .vscode
+.idea
