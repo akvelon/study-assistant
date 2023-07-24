@@ -1,23 +1,27 @@
-import os
+"""history.py implement HistoryDB that handles all database interactions."""
+
 import sqlite3
 import pickle
 import zlib
-import json
 from contextlib import closing
 
 from settings import settings
-from api.db.users import users_db
-from api.endpoints.schemas import Message, History, HistoryResponse, Chat
+from api.endpoints.schemas import Message, History, Chat
 
 
 class HistoryDB:
+    """HistoryDB is a singleton class that handles all database interactions"""
+
     def __init__(self):
         try:
             self.connection = sqlite3.connect(settings.db_path)
 
             self.create_if_not_exists()
-        except sqlite3.Error as e:
+        except sqlite3.Error as error:
             print("Failed to connect to HistoryDB.")
+            print(error)
+            print(error.sqlite_errorcode)
+            print(error.sqlite_errorname)
 
     def __del__(self):
         if self.connection:
@@ -31,7 +35,7 @@ class HistoryDB:
             self.connection = self.connection.close()
 
     def create_if_not_exists(self):
-        # If user is deleted, then delete all history
+        """Create History table if it doesn't exist."""
         sql_create_history_table = """
         CREATE TABLE IF NOT EXISTS chat_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,6 +49,7 @@ class HistoryDB:
         self.connection.commit()
 
     def delete(self):
+        """Delete History table."""
         with closing(self.connection.cursor()) as cursor:
             cursor.execute("DROP TABLE IF EXISTS chat_history")
         self.connection.commit()
@@ -70,9 +75,9 @@ class HistoryDB:
                     chat=Chat(id=history_raw[0], summary=history_raw[3]),
                     messages=uncompress_messages(history_raw[4]),
                 )
-        except sqlite3.Error as e:
-            print(f"Failed query: {sql_select_history}\n{e}")
-            raise HistoryDbException
+        except sqlite3.Error as error:
+            print(f"Failed query: {sql_select_history}\n{error}")
+            raise HistoryDbException from error
 
     def get_history_by_ids(self, openai_id: str, user_id: int) -> History | None:
         """Grab singular history by openai_id and user_id and return it."""
@@ -99,9 +104,9 @@ class HistoryDB:
                     chat=Chat(id=history_raw[0], summary=history_raw[3]),
                     messages=uncompress_messages(history_raw[4]),
                 )
-        except sqlite3.Error as e:
-            print(f"Failed query: {sql_select_history}\n{e}")
-            raise HistoryDbException
+        except sqlite3.Error as error:
+            print(f"Failed query: {sql_select_history}\n{error}")
+            raise HistoryDbException from error
 
     def get_all_history_by_user_id(self, user_id: int) -> list[History] | None:
         """Grab all history for user and return"""
@@ -132,18 +137,20 @@ class HistoryDB:
         # Return History
         return history
 
-    def create_new_history_ids(self, openai_id: str, user_id) -> int:
+    def create_new_history_ids(
+        self, openai_id: str, user_id: int, summary: str | None
+    ) -> int:
         """Create new history and return id."""
         sql_query = """
-        INSERT INTO chat_history (openai_id, user_id, summary, messages) VALUES (?, ?, ?, NULL);"""
+        INSERT INTO chat_history (openai_id, user_id, summary, messages)
+        VALUES (?, ?, ?, NULL);"""
         with closing(self.connection.cursor()) as cursor:
             cursor.execute(
                 sql_query,
                 (
                     openai_id,
                     user_id,
-                    # TODO: Implement chat summary
-                    None,
+                    summary,
                 ),
             )
             self.connection.commit()
@@ -230,9 +237,9 @@ class HistoryDB:
                 )
 
             self.connection.commit()
-        except sqlite3.Error as e:
-            print(f"Error while updating history messages with id = {chat_id}: {e}")
-            raise InvalidChatIdException
+        except sqlite3.Error as error:
+            print(f"Error while updating history messages with id = {chat_id}: {error}")
+            raise InvalidChatIdException from error
 
     def update_messages_by_ids(
         self, openai_id: str, user_id: int, messages: list[Message]
@@ -257,9 +264,9 @@ class HistoryDB:
                 )
 
             self.connection.commit()
-        except sqlite3.Error as e:
-            print(f"Error while updating history messages with id = {openai_id}: {e}")
-            raise InvalidHistoryException
+        except sqlite3.Error as error:
+            print(f"Error while updating history messages with id = {openai_id}: {error}")
+            raise InvalidHistoryException from error
 
 
 # HistoryDB singleton
@@ -267,24 +274,26 @@ history_db = HistoryDB()
 
 
 class InvalidUserIdException(Exception):
-    pass
+    """InvalidUserIdException is raised when a user_id is not found in the database."""
 
 
 class InvalidChatIdException(Exception):
-    pass
+    """InvalidChatIdException is raised when a chat_id is not found in the database."""
 
 
 class InvalidHistoryException(Exception):
-    pass
+    """InvalidHistoryException is raised when a history is not found in the database."""
 
 
 class HistoryDbException(Exception):
-    pass
+    """HistoryDbException is raised when there is an error with the database."""
 
 
 def compress_messages(messages: list[Message]):
+    """Compress and pickle messages"""
     return zlib.compress(pickle.dumps(messages, pickle.HIGHEST_PROTOCOL))
 
 
 def uncompress_messages(blob) -> list[Message]:
+    """Uncompress and unpickle messages"""
     return pickle.loads(zlib.decompress(blob))

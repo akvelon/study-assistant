@@ -1,9 +1,16 @@
+"""Creates an interface all assistant can access to interact with the database
+for chat history."""
+
+import openai
+
+from settings import settings
 from api.db.history import history_db, InvalidChatIdException
 from api.endpoints.schemas import Chat, Message, MessagesResponse
-from api.endpoints.user import User
 
 
 class HistoryManager:
+    """Manages conversations for assistants."""
+
     def __init__(self):
         pass
 
@@ -17,26 +24,25 @@ class HistoryManager:
             # Check if chat id is present
             if request.chat and request.chat.id:
                 return self.update_history(request.chat.id, user.id, request.messages)
+
+            # Otherwise fallback to OpenAI id and user id
+            openai_id = None
+
+            # Create new history if first message
+            if len(request.messages) == 1:
+                openai_id = response_message.id
             else:
-                # Otherwise fallback to OpenAI id and user id
-                openai_id = None
+                # Continue history from existing messages
+                # and get history id from first ChatGPT response
+                openai_id = request.messages[1].id
 
-                # Create new history if first message
-                if len(request.messages) == 1:
-                    openai_id = response_message.id
-                else:
-                    # Continue history from existing messages
-                    # and get history id from first ChatGPT response
-                    openai_id = request.messages[1].id
+            return self.update_history_by_ids(openai_id, user.id, request.messages)
 
-                return self.update_history_by_ids(openai_id, user.id, request.messages)
-
-        else:
-            # Otherwise guest user, just messages
-            return MessagesResponse(
-                messages=request.messages,
-                quickReplies=[],
-            )
+        # Otherwise guest user, just messages
+        return MessagesResponse(
+            messages=request.messages,
+            quickReplies=[],
+        )
 
     def update_history(self, chat_id: int, user_id: int, messages: list[Message]):
         """Update History table by appending new messages for valid chat id"""
@@ -63,7 +69,29 @@ class HistoryManager:
 
         chat_id = None
         if history is None:
-            chat_id = history_db.create_new_history_ids(openai_id, user_id)
+            # Prime the conversation with a prompt
+            promt = {
+                "role": "system",
+                "content": """Summarize the first message which will serve as 
+                the summary for the entire conversation that follows.""",
+            }
+            first_message = {
+                "role": "user",
+                "content": messages[0].content,
+            }
+            # Add prompt and first message to payload
+            payload = [promt, first_message]
+            # Generate summary
+            summary = (
+                openai.ChatCompletion.create(
+                    model=settings.chatgpt_model,
+                    messages=payload,
+                )
+                .choices[0]
+                .message.content
+            )
+
+            chat_id = history_db.create_new_history_ids(openai_id, user_id, summary)
         else:
             if history.user_id != user_id:
                 raise UnauthorizedUserEditingHistoryException()
@@ -81,4 +109,4 @@ class HistoryManager:
 
 
 class UnauthorizedUserEditingHistoryException(Exception):
-    pass
+    """Raised when user tries to edit history that does not belong to them."""
