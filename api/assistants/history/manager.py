@@ -72,8 +72,17 @@ class HistoryManager:
             # Prime the conversation with a prompt
             promt = {
                 "role": "system",
-                "content": """Summarize the first message which will serve as 
-                the summary for the entire conversation that follows.""",
+                "content": """Summarize chat message. Here are some examples. 
+                EXAMPLE 1: 
+                User: "When does UW open general admissions?"
+                Summary: "UW general admissions"
+                EXAMPLE 2:
+                User: "Can I cancel my housing agreement early?"
+                Summary: "Cancel housing agreement"
+                EXAMPLE 3:
+                User: "How do I apply for scholarships?"
+                Summary: "Apply for scholarships"
+                """,
             }
             first_message = {
                 "role": "user",
