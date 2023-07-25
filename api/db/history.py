@@ -1,5 +1,6 @@
 """history.py implement HistoryDB that handles all database interactions."""
 
+import os
 import sqlite3
 import pickle
 import zlib
@@ -12,9 +13,13 @@ from api.endpoints.schemas import Message, History, Chat
 class HistoryDB:
     """HistoryDB is a singleton class that handles all database interactions"""
 
-    def __init__(self):
+    db_path = "data/db/history.db"
+
+    def __init__(self, db_path):
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        self.db_path = db_path
         try:
-            self.connection = sqlite3.connect(settings.db_path)
+            self.connection = sqlite3.connect(self.db_path)
 
             self.create_if_not_exists()
         except sqlite3.Error as error:
@@ -270,7 +275,7 @@ class HistoryDB:
 
 
 # HistoryDB singleton
-history_db = HistoryDB()
+history_db = HistoryDB(settings.db_path)
 
 
 class InvalidUserIdException(Exception):

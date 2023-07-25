@@ -71,9 +71,10 @@ class HistoryResponse(BaseModel):
 class School(BaseModel):
     """Institution related information"""
 
-    id: str
+    id: int
     title: str
     shortName: str
+    url: str
 
 
 class SchoolsResponse(BaseModel):

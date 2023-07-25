@@ -16,7 +16,9 @@ async def schools() -> SchoolsResponse:
     schools_get = schools_db.get_schools()
     schools_list = []
     for row in schools_get:
-        id_value, title, short_name = row
-        schools_list.append(School(id=id_value, title=title, shortName=short_name))
+        id_value, title, short_name, url = row
+        schools_list.append(
+            School(id=id_value, title=title, shortName=short_name, url=url)
+        )
 
     return SchoolsResponse(schools=schools_list)
