@@ -7,6 +7,8 @@ import hashlib
 import uuid
 from pydantic import BaseModel
 
+from settings import settings
+
 
 def get_pass_hash(password: str, salt: str):
     """Hash password with given salt using sha512 hash"""
@@ -24,9 +26,9 @@ class AuthEntry(BaseModel):
     salt: str
     token: str
 
-    def __init__(self, id, email, school_id, password_hash, salt, token):
+    def __init__(self, user_id, email, school_id, password_hash, salt, token):
         super().__init__(
-            id=id,
+            id=user_id,
             email=email,
             school_id=school_id,
             password_hash=password_hash,
@@ -38,19 +40,18 @@ class AuthEntry(BaseModel):
 class UsersDB:
     """users.db wrapper"""
 
-    database_path = "data/db/users.db"
+    db_path = "data/db/users.db"
 
-    def __init__(self, db_path, db_name):
-        os.makedirs(db_path, exist_ok=True)
-        path = os.path.join(db_path, db_name)
-        self.database_path = path
+    def __init__(self, db_path):
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        self.db_path = db_path
         try:
-            self.connection = sqlite3.connect(self.database_path)
+            self.connection = sqlite3.connect(self.db_path)
             self.cursor = self.connection.cursor()
 
             self.create_database_if_not_exists()
-        except sqlite3.Error as e:
-            print(f"Failed to establish connection to database\n{e}")
+        except sqlite3.Error as ex:
+            print(f"Failed to establish connection to database\n{ex}")
 
     def __del__(self):
         self.connection.commit()
@@ -62,7 +63,7 @@ class UsersDB:
             """CREATE TABLE IF NOT EXISTS auth_users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     email VARCHAR NOT NULL,
-                    school_id INTEGER NOT NULL,
+                    school_id INTEGER NOT NULL REFERENCES schools(id),
                     password_hash BLOB NOT NULL,
                     salt BLOB NOT NULL
             )"""
@@ -129,7 +130,10 @@ class UsersDB:
         password_hash = get_pass_hash(user.password, salt)
 
         # Insert user data
-        insert_user_sql = """INSERT INTO auth_users (email, school_id, password_hash, salt) VALUES (?, ?, ?, ?)"""
+        insert_user_sql = """INSERT INTO auth_users
+                            (email, school_id, password_hash, salt) 
+                            VALUES (?, ?, ?, ?)
+                        """
         self.cursor.execute(
             insert_user_sql, [user.email, user.schoolId, password_hash, salt]
         )
@@ -149,4 +153,4 @@ class UsersDB:
         self.connection.commit()
 
 
-users_db = UsersDB("data/db/", "users.db")
+users_db = UsersDB(settings.db_path)

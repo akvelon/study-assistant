@@ -4,18 +4,19 @@
 import os
 import sqlite3
 
+from settings import settings
+
 
 class SchoolsDB:
     """schools.db wrapper"""
 
-    database_path = "data/db/schools.db"
+    db_path = "data/db/schools.db"
 
-    def __init__(self, db_path, db_name):
-        os.makedirs(db_path, exist_ok=True)
-        path = os.path.join(db_path, db_name)
-        self.database_path = path
+    def __init__(self, db_path):
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        self.db_path = db_path
         try:
-            self.connection = sqlite3.connect(self.database_path)
+            self.connection = sqlite3.connect(self.db_path)
             self.cursor = self.connection.cursor()
 
             self.create_database_if_not_exists()
@@ -32,25 +33,29 @@ class SchoolsDB:
             """CREATE TABLE IF NOT EXISTS schools (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     title VARCHAR NOT NULL,
-                    short_name VARCHAR NOT NULL
+                    short_name VARCHAR NOT NULL,
+                    url VARCHAR NOT NULL
             )"""
         )
+        (rows,) = self.cursor.execute("SELECT COUNT(id) from schools").fetchone()
+        if rows == 0:
+            self.cursor.execute(
+                """INSERT INTO schools (title, short_name, url) VALUES (?, ?, ?)""",
+                [
+                    "University of Washington",
+                    "UW",
+                    "https://www.washington.edu",
+                ],
+            )
+
         self.connection.commit()
 
     def get_schools(self):
         """Returns a list of all schools in database"""
-        self.cursor.execute("SELECT id, title, short_name FROM schools")
+        self.cursor.execute("SELECT id, title, short_name, url FROM schools")
         rows = self.cursor.fetchall()
 
-        # Create a list to store the results
-        result = []
-
-        # Iterate through the fetched rows and append them to the result list
-        for row in rows:
-            id_value, title, short_name = row
-            result.append((id_value, title, short_name))
-
-        return result
+        return rows
 
 
-schools_db = SchoolsDB("data/db/", "schools.db")
+schools_db = SchoolsDB(settings.db_path)
