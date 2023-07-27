@@ -33,8 +33,8 @@ class StudyAssistantSettings(BaseSettings):
     model: str = "gpt-3.5-turbo"
     greeting: str = ""
 
-    temperature: float = 0.0
-    max_tokens: int = 500
+    temperature: float = 0.8
+    max_tokens: int = 400
 
     prompt: str = prompt
 
@@ -53,16 +53,13 @@ class StudyAssistant(StudyAssistantSettings):
         # Places the system prompt at beginning of list
         messages = [{"role": "system", "content": self.prompt}]
         # Appends the rest of the conversation
-        document = None
         for message in request.messages:
             messages.append({"role": message.role, "content": message.content})
+
         documents = await search_engine.search_text_vectors(request)
-        if len(documents):
-            document = documents[0]
+        document = documents[0] if len(documents) else None
         if document:
             messages.append(search_engine.get_system_message(document))
-        for message in request.messages:
-            messages.append({"role": message.role, "content": message.content})
 
         # Generate response
         gpt_response = openai.ChatCompletion.create(
@@ -71,33 +68,34 @@ class StudyAssistant(StudyAssistantSettings):
             max_tokens=self.max_tokens,
             temperature=self.temperature,
         )
+
+        attachments = []
+
+        # Attach document to user message content
+        if document:
+            image_src = (
+                document.document.image_metadata[0]["src"]
+                if document.document.image_metadata
+                else None
+            )
+            attachments.append(
+                MessageAttachment(
+                    id=document.document.id,
+                    title=document.document.title,
+                    summary=document.document.summary,
+                    url=document.document.url,
+                    image=image_src,
+                )
+            )
+
         # Convert to Message schema
         response_message = Message(
             id=gpt_response["id"],
             role=gpt_response["choices"][0]["message"]["role"],
             timestamp=time.time(),
             content=gpt_response["choices"][0]["message"]["content"],
+            attachments=attachments,
         )
-
-        # Search similar documents with user message content
-        attachment = None
-        if len(documents):
-            image_src = (
-                document.document.image_metadata[0]["src"]
-                if document.document.image_metadata
-                else None
-            )
-            attachment = MessageAttachment(
-                id=document.document.id,
-                title=document.document.title,
-                summary=document.document.summary,
-                url=document.document.url,
-                image=image_src,
-            )
-        # Update ChatGPT attachmentens
-        if attachment:
-            response_message.attachments = [attachment]
-            print(response_message.attachments)
 
         return history_manager.process_messages(request, response_message, user)
 

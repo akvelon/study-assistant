@@ -59,15 +59,21 @@ class SearchEngine:
         openai.api_key = settings.openai_key
         self.documents = self.get_documents_from_index()
 
-    def find_documents_by_text_similarity(self, messages) -> bool:
+    def should_search_docs(self, messages) -> bool:
         """Function for comparing texts and check if it fit for requirements"""
-        threshold = 0.25
+        threshold = 0.155
+        message_content = messages[-1].content
+        msg_vector = generate_vectors(message_content)
+        max_cosine = 0
         for document in self.documents:
-            vector1 = generate_vectors(document.summary)
-            vector2 = generate_vectors(messages[-1].content)
-            cosine = cosine_similarity_for_attachments(vector1, vector2)
-            if cosine > threshold:
-                return True
+            doc_vector = generate_vectors(document.summary)
+            cosine = cosine_similarity_for_attachments(doc_vector, msg_vector)
+            max_cosine = max(cosine, max_cosine)
+
+        print("text similarity:", max_cosine, 'for "' + message_content + '"')
+
+        if max_cosine > threshold:
+            return True
         return False
 
     def get_documents_from_index(self):
@@ -87,31 +93,32 @@ class SearchEngine:
             vectors.append(np.array(vector))
         return vectors
 
-    def search_document(self, embeddings):
+    def search_documents(self, embeddings):
         """Calculating cosine similarity,
         searching and sorting most similar and relevant documents"""
         similar_documents = []
+        max_cosine = 0
         for embedding in embeddings:
             for document in self.documents:
-                threshold = 0.82
+                threshold = 0.815
                 cosine_similarity = 1 - spatial.distance.cosine(
                     embedding.T, document.embedding.T
                 )
+                max_cosine = max(cosine_similarity, max_cosine)
                 if cosine_similarity > threshold:
                     similar_documents.append(
                         SearchDocument(document=document, similarity=cosine_similarity)
                     )
             response = sorted(similar_documents, key=lambda x: x.similarity, reverse=True)
+        print("      embedding:", max_cosine)
         return response
 
     async def search_text_vectors(self, request: MessagesRequest):
         """Function for call text comparing and search engine"""
-        documents = self.find_documents_by_text_similarity(request.messages)
-        if documents is True:
+        if self.should_search_docs(request.messages):
             embeddings = self.generate_embeddings(request)
-            documents = self.search_document(embeddings)[:10]
-            return []
-        return documents
+            return self.search_documents(embeddings)
+        return []
 
     def get_system_message(self, document):
         """Creates system message for chat"""
@@ -131,5 +138,5 @@ search_db = search_engine.documents
 async def search_documents(query: SearchQuery) -> SearchResult:
     """POST request with 10 relevant documents"""
     embeddings = search_engine.generate_embeddings(query)
-    similar_documents = search_engine.search_document(embeddings)[:10]
+    similar_documents = search_engine.search_documents(embeddings)[:10]
     return SearchResult(documents=similar_documents)
