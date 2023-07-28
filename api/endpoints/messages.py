@@ -24,8 +24,10 @@ async def messages(
         if (len(request.messages) % 2) == 0:
             raise UsersMessageMissingException
 
+        school_id = user.schoolId if user and user.schoolId else None
+
         # Pass request to assistant, assuming last message is user's
-        assistant_response = await assistant.generate_response(request, user)
+        assistant_response = await assistant.generate_response(request, user, school_id)
 
         return MessagesResponse(
             chat=assistant_response.chat,

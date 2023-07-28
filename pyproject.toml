@@ -22,7 +22,8 @@ disable = '''
     E0401,
     W0622,
     W0511,
-    R0801
+    R0801,
+    C0103
 '''
 
 [tool.pylint.SPELLING]

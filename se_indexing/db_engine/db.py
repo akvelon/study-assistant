@@ -1,18 +1,40 @@
 """Search Index database wrapper"""
+
+import os
+import pathlib
+import sys
+
 import sqlite3
 from uuid import uuid4
-from pydantic import BaseModel
-import pickle
-import numpy as np
 import json
+import pickle
 from contextlib import closing
+from pydantic import BaseModel
+import numpy as np
+
+
+sys.path.append(os.path.abspath(pathlib.Path(__file__).parent.parent.parent))
+os.chdir(pathlib.Path(__file__).parent.parent.parent)
+# pylint: disable=wrong-import-position)
+from api.db.schools import schools_db
+
+
+def get_schools():
+    """Function to get all schools id's"""
+    schools = []
+    for row in schools_db.get_schools():
+        schools.append({"id": row[0], "url": row[3]})
+    return schools
 
 
 class DocumentEntry(BaseModel):
+    """Document Entry class"""
+
     id: str
     url: str
     title: str
     type: str
+    school_id: int = None
     metadata: list
     image_metadata: list
     content: str
@@ -21,21 +43,24 @@ class DocumentEntry(BaseModel):
 
     def __init__(
         self,
-        id,
+        document_id,
         url,
         title,
         type,
+        school_id,
         metadata,
         image_metadata,
         content,
         summary,
         embedding=None,
     ):
+        """init"""
         super().__init__(
-            id=id,
+            id=document_id,
             url=url,
             title=title,
             type=type,
+            school_id=school_id,
             metadata=json.loads(metadata),
             image_metadata=json.loads(image_metadata),
             content=content,
@@ -44,10 +69,15 @@ class DocumentEntry(BaseModel):
         self.embedding = np.array(pickle.loads(embedding))
 
     class Config:
+        "Config"
         fields = {"embedding": {"exclude": True}}
 
 
 class IndexDB:
+    """DataBase Index"""
+
+    schools = get_schools()
+
     def __init__(self, path):
         self.path = path
 
@@ -80,6 +110,7 @@ class IndexDB:
             id text PRIMARY KEY,
             url text,
             title text,
+            school_id text,
             type text,
             metadata text,
         	image_metadata text,
@@ -106,6 +137,7 @@ class IndexDB:
         self.connection.commit()
 
     def get_documents(self):
+        """Function for load documents into Search engine"""
         with closing(self.connection.cursor()) as cursor:
             cursor.execute(
                 """
@@ -114,6 +146,7 @@ class IndexDB:
                     documents.url,
                     documents.title,
                     documents.type,
+                    documents.school_id,
                     documents.metadata,
                     documents.image_metadata,
                     documents.content,
@@ -141,9 +174,15 @@ class IndexDB:
     def insert_document(self, document):
         """Add document to indexing database, and return its ID."""
         document["id"] = str(uuid4())
+        school_id = self.get_school_by_url(document["url"])
+        if school_id is None:
+            document["type"] = "general"
+        if len(document["content"]) == 0:
+            return None
+
         sql_insert_document = """
-        INSERT INTO documents(id, url, title, type, metadata, image_metadata, content)
-        VALUES(?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO documents(id, url, title, school_id, type, metadata, image_metadata, content)
+        VALUES(?, ?, ?, ?, ?, ?, ?, ?)
         """
         with closing(self.connection.cursor()) as cursor:
             cursor.execute(
@@ -152,6 +191,7 @@ class IndexDB:
                     document["id"],
                     document["url"],
                     document["title"],
+                    school_id,
                     document["type"],
                     json.dumps(document["metadata"]),
                     json.dumps(document["image_metadata"]),
@@ -188,6 +228,7 @@ class IndexDB:
         return embedding_id
 
     def find_document_by_url(self, url):
+        """Finds document in DB by URL"""
         sql_find_document = """
         SELECT * FROM documents WHERE url = ?
         """
@@ -196,6 +237,7 @@ class IndexDB:
             return cursor.fetchone()
 
     def find_summary_by_document_id(self, document_id):
+        """Finds summary in DB bu document id"""
         sql_find_summary = """
         SELECT * FROM summaries WHERE document_id = ?"""
         with closing(self.connection.cursor()) as cursor:
@@ -203,8 +245,16 @@ class IndexDB:
             return cursor.fetchone()
 
     def find_embedding_by_summary_id(self, summary_id):
+        """Finds embedding in DB by summary"""
         sql_find_embedding = """
         SELECT * FROM embeddings WHERE summary_id = ?"""
         with closing(self.connection.cursor()) as cursor:
             cursor.execute(sql_find_embedding, (summary_id,))
             return cursor.fetchone()
+
+    def get_school_by_url(self, url):
+        """Get school id by url"""
+        for school in self.schools:
+            if url.startswith(school["url"]):
+                return school["id"]
+        return None

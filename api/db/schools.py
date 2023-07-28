@@ -3,7 +3,6 @@
 """
 import os
 import sqlite3
-
 from settings import settings
 
 
@@ -39,12 +38,15 @@ class SchoolsDB:
         )
         (rows,) = self.cursor.execute("SELECT COUNT(id) from schools").fetchone()
         if rows == 0:
-            self.cursor.execute(
+            self.cursor.executemany(
                 """INSERT INTO schools (title, short_name, url) VALUES (?, ?, ?)""",
                 [
-                    "University of Washington",
-                    "UW",
-                    "https://www.washington.edu",
+                    ("University of Washington", "UW", "https://www.cs.washington.edu"),
+                    ("Bellevue high school", "BHS", "https://bsd405.org/bhs"),
+                    ("Sammamish high school", "SHS", "https://bsd405.org/sammamish"),
+                    ("Interlake high school", "IHS", "https://bsd405.org/interlake"),
+                    ("Newport high school", "NHS", "https://bsd405.org/nhs"),
+                    ("Bellevue college", "BC", "https://www.bellevuecollege.edu"),
                 ],
             )
 
