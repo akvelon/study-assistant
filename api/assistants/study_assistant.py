@@ -1,5 +1,6 @@
 """Study assistant"""
 import time
+import io
 from pydantic import BaseSettings
 import openai
 from settings import settings
@@ -100,6 +101,51 @@ class StudyAssistant(StudyAssistantSettings):
         )
 
         return history_manager.process_messages(request, response_message, user)
+
+    async def generate_response_audio(
+        self, audio_file, chat_id: int | None, user: User | None, school_id: int
+    ) -> MessagesResponse:
+        """Generate response for audio question."""
+
+        # Convert audio file to byte stream, due to unknown reasons
+        # OpenAI does not accept SpooledTemporaryFile's
+        buffer = io.BytesIO(audio_file.file.read())
+        buffer.name = audio_file.filename
+        # Transcribe audio byte stream to text
+        transcript = openai.Audio.transcribe("whisper-1", buffer, response_format="text")
+
+        # Start new conversation if no chat_id is present
+        if chat_id is None:
+            request = MessagesRequest(
+                messages=[
+                    Message(
+                        id="1",
+                        role="user",
+                        timestamp=time.time(),
+                        content=transcript,
+                    )
+                ]
+            )
+            return await self.generate_response(request, user, school_id)
+
+        # Otherwise append transcription to existing chat history
+        # Attempt to get chat history
+        chat_history = history_manager.get_history(chat_id, user.id)
+
+        request = MessagesRequest(
+            chat=chat_history.chat,
+            messages=chat_history.messages,
+        )
+        request.messages.append(
+            Message(
+                id=str(len(request.messages) + 1),
+                role="user",
+                timestamp=time.time(),
+                content=transcript,
+            )
+        )
+
+        return await self.generate_response(request, user, school_id)
 
 
 class UsersMessageMissingException(Exception):
