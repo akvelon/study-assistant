@@ -5,7 +5,7 @@ import openai
 
 from settings import settings
 from api.db.history import history_db, InvalidChatIdException
-from api.endpoints.schemas import Chat, Message, MessagesResponse
+from api.endpoints.schemas import Chat, Message, MessagesResponse, History
 
 
 class HistoryManager:
@@ -44,14 +44,18 @@ class HistoryManager:
             quickReplies=[],
         )
 
-    def update_history(self, chat_id: int, user_id: int, messages: list[Message]):
-        """Update History table by appending new messages for valid chat id"""
-        if (history := history_db.get_history(chat_id)) is None:
+    def get_history(self, chat_id: int, user_id: int) -> History | None:
+        """Get history by chat id"""
+        history = history_db.get_history(chat_id)
+        if history is None:
             raise InvalidChatIdException
-
         if history.user_id != user_id:
             raise UnauthorizedUserEditingHistoryException
+        return history
 
+    def update_history(self, chat_id: int, user_id: int, messages: list[Message]):
+        """Update History table by appending new messages for valid chat id"""
+        history = self.get_history(chat_id, user_id)
         history_db.update_messages(chat_id, messages)
 
         return MessagesResponse(
