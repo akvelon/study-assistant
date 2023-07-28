@@ -1,33 +1,21 @@
+"""DB INDEXER"""
 import os
-import pathlib
-import sys
 import pickle
 import json
 import glob
 import multiprocessing
 import openai
-
 from db_engine.config import get_database
-
-
-sys.path.append(os.path.abspath(pathlib.Path(__file__).parent.parent))
-os.chdir(pathlib.Path(__file__).parent.parent)
 from settings import settings
 
 
 def get_documents():
     """Find all documents from the documents/ folder and return absolute path."""
 
-    root_dir = os.getcwd()
-    os.chdir("se_indexing/documents/")
+    documents_folder = os.path.join(os.getcwd(), "se_indexing/documents/")
 
     # Find all files in documents/ folder
-    document_files = glob.glob("*.json", recursive=True)
-
-    # Make all files absolute paths
-    document_files = [
-        os.path.join(os.getcwd(), document_file) for document_file in document_files
-    ]
+    document_files = glob.glob(os.path.join(documents_folder, "*.json"), recursive=True)
 
     for document in document_files:
         yield document
@@ -36,12 +24,10 @@ def get_documents():
 
 
 # TODO: Implement deleting a document when finished indexing
-def delete_document(document):
-    """When finished indexing, delete the document from the documents/ folder because it is no longer needed."""
-    pass
 
 
 def create_summary_for_content(content):
+    """Creates summary using content for document"""
     max_tokens = 4097
     summary_word_count = 100  # words
     tokens_per_word = 100 / 75  # tokens per word
@@ -50,11 +36,12 @@ def create_summary_for_content(content):
         # Prepare ChatGPT for summarizing
         {
             "role": "system",
-            "content": "You are an intelligent human summarizer.",
+            # pylint: disable=line-too-long
+            "content": """Summarize the following content as concisely as possible. Max word count is 400.""",
         },
         {
             "role": "user",
-            "content": f"Summarize the document delimited by an XML tags in one paragraph of about {summary_word_count} words.\n<document>{content[:max_tokens-summary_token_count]}</document>",
+            "content": content[: max_tokens - summary_token_count],
         },
     ]
 
@@ -68,6 +55,7 @@ def create_summary_for_content(content):
 
 
 def create_embedding_for_summary(summary):
+    """Creates embedding for summary"""
     embedding_reply = openai.Embedding.create(
         model=settings.embedding_model,
         input=summary,
@@ -81,21 +69,22 @@ def create_embedding_for_summary(summary):
 
 
 def process_document(document_abspath):
-    db = get_database()
+    """Document indexing func"""
+    database = get_database()
 
-    with open(document_abspath, "r") as document_file:
+    with open(document_abspath, "r", encoding="utf-8") as document_file:
         print(f"Processing {document_file.name}")
         document = json.load(document_file)
         document_content = document["content"]
 
         # Check if document is already in database
-        if db.find_document_by_url(document["url"]) is None:
+        if database.find_document_by_url(document["url"]) is None:
             document_summary = create_summary_for_content(document_content)
             document_embedding = create_embedding_for_summary(document_summary)
 
-            document_id = db.insert_document(document)
-            summary_id = db.insert_summary(document_id, document_summary)
-            embedding_id = db.insert_embedding(
+            document_id = database.insert_document(document)
+            summary_id = database.insert_summary(document_id, document_summary)
+            database.insert_embedding(
                 summary_id, settings.embedding_model, document_embedding
             )
 
@@ -104,25 +93,21 @@ def process_document(document_abspath):
 
 
 def main():
-    with get_database() as db:
-        db.create_database_if_not_exists()
+    """Main func"""
+    with get_database() as database:
+        database.create_database_if_not_exists()
 
         openai.api_key = settings.openai_key
 
-        pool = multiprocessing.Pool(processes=8)
+        with multiprocessing.Pool(processes=8) as pool:
+            for document_abspath in get_documents():
+                document_filename = os.path.basename(document_abspath)
+                print(f"Indexing {document_filename}")
 
-        for document_abspath in get_documents():
-            document_filename = os.path.basename(document_abspath)
-            print(f"Indexing {document_filename}")
-
-            # this is so awesome
-            pool.apply_async(
-                process_document,
-                args=(document_abspath,),
-            )
-
-        pool.close()
-        pool.join()
+                # this is so awesome
+                pool.apply_async(process_document, args=(document_abspath,))
+            pool.close()
+            pool.join()
 
 
 main()

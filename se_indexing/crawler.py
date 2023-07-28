@@ -1,3 +1,4 @@
+"""Crawler"""
 import json
 from argparse import ArgumentParser
 from posixpath import normpath
@@ -10,21 +11,25 @@ from bs4 import BeautifulSoup
 
 
 def url_remove_past_path(url: str) -> str:
+    """Func for removing path"""
     return urlparse(url)._replace(params="", query="", fragment="").geturl()
 
 
 def url_normalize(url: str) -> str:
+    """URL normalizing function"""
     url = url_remove_past_path(url)
     # Use Posix paths to normalize cases like example/ and example paths to example/
     url_path_norm: str = normpath(urlparse(url).path)
     return urljoin(url, url_path_norm)
 
 
-def is_header_or_footer(tag):
-    return tag.name == "header" or tag.name == "footer"
+def is_header_or_footer_or_nav(tag):
+    """Check tags "header", "footer" and "nav" """
+    return tag.name in ("header", "footer", "nav")
 
 
 def find_canonical_link(soup: BeautifulSoup) -> str | None:
+    """Function for finding canonical link"""
     # Find rel="canonical" tag
     canonical_tag = soup.find(attrs={"rel": "canonical"})
     # Return canonical link if exists
@@ -34,6 +39,7 @@ def find_canonical_link(soup: BeautifulSoup) -> str | None:
 
 
 def extract_metadata(soup: BeautifulSoup) -> list[dict[str, str]] | None:
+    """Function for extracting metadata"""
     # Find all meta tags in document
     all_meta_tags = soup.find_all("meta")
     if all_meta_tags is None:
@@ -49,17 +55,13 @@ def extract_metadata(soup: BeautifulSoup) -> list[dict[str, str]] | None:
 
 
 def find_main_content(soup: BeautifulSoup) -> list[BeautifulSoup]:
-    """There are 4 cases: <main> tag, "main" id tag, "Skip to main content" link, or fallback to <body> tag."""
+    """There are 4 cases: <main> tag, "main" id tag,
+    "Skip to main content" link, or fallback to <body> tag."""
 
     # Attempt to find <main> tag
-    main_content = soup.find("main")
+    main_content = soup.find("main") or soup.find(role="main") or soup.find(id="main")
     if main_content:
-        return main_content.find_all()
-
-    # Attempt to find "main" id tag
-    main_content = soup.find(id="main")
-    if main_content:
-        return main_content.find_all()
+        return [main_content]
 
     # Attempt to match "Skip to main content" links
     pattern = r"skip.*main\scontent"
@@ -77,6 +79,7 @@ def find_main_content(soup: BeautifulSoup) -> list[BeautifulSoup]:
 
 
 def extract_main_content(tags: list[BeautifulSoup]) -> list[BeautifulSoup]:
+    """Function for extracting main content"""
     # Extract text from all tags
     elements = []
     for tag in tags:
@@ -89,6 +92,7 @@ def extract_main_content(tags: list[BeautifulSoup]) -> list[BeautifulSoup]:
 def extract_image_metadata(
     tags: list[BeautifulSoup], base_url: str
 ) -> list[dict[str, str | None]]:
+    """Function for extracting image metadata"""
     image_metadata: list[dict[str, str | None]] = []
     for tag in tags:
         if images := tag.find_all("img"):
@@ -103,6 +107,7 @@ def extract_image_metadata(
 
 
 def remove_duplicate_eol(text: str) -> str:
+    """Function for removing eol duplicates"""
     # Match consecutive EOL lines (and any whitespace padding)
     pattern = r"(\s*\n\s*){1,}"
     replacement = "\n"
@@ -114,6 +119,7 @@ def remove_duplicate_eol(text: str) -> str:
 
 
 def extract_urls(soup: BeautifulSoup) -> list[str]:
+    """Function for extracting URLS"""
     # Extract href meta from all <a> tags
     urls: list[str] = [
         url.get("href") for url in soup.find_all("a") if url.get("href") is not None
@@ -125,12 +131,14 @@ def extract_urls(soup: BeautifulSoup) -> list[str]:
 
 
 def remove_outside_urls(urls: list[str], base_url: str) -> list[str]:
+    """Remove outside URLS"""
     base_netloc = urlparse(base_url).netloc
     urls = [url for url in urls if urlparse(url).netloc == base_netloc]
     return urls
 
 
 def join_relative_urls(urls: list[str], base_url: str) -> list[str]:
+    """Join relative URLS"""
     urls = [urljoin(base_url, url) for url in urls]
     return urls
 
@@ -142,6 +150,7 @@ def jsonify_document(
     image_metadata: list[dict[str, str | None]],
     plain_text: str,
 ) -> str:
+    """Function for JSONify crawled document"""
     document_data = {
         "url": url,
         "title": title,
@@ -158,26 +167,35 @@ def jsonify_document(
 
 
 class Crawler:
+    """Crawler class"""
+
     def __init__(self):
         self.webpage_url: str | None = None
         self.max_depth: int = 5
         self.curr_depth: int = 1
         self.visited_urls: set[str] = set()
         self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+            " (KHTML, like Gecko) Chrome/114.0.0.0 Safari/537.36"
         }
         self.timeout = 5
 
-    def scrape(self, url: str):
-        """Recursively scrape webpage extracting canonical link, title, metadata, and plain text."""
+    # pylint: disable=too-many-branches
+    # pylint: disable=too-many-locals
+    def scrape(self, url: str, exact_url: str = None):
+        """Recursively scrape webpage extracting canonical link
+        , title, metadata, and plain text."""
         try:
             if self.webpage_url is None:
                 self.webpage_url = url
+                if exact_url:
+                    url = exact_url
 
             webpage_response: requests.Response = requests.get(
                 url, headers=self.headers, timeout=self.timeout
             )
             if webpage_response.status_code != 200:
+                print(webpage_response.status_code, url)
                 return
 
             webpage_html: str = webpage_response.text
@@ -191,7 +209,13 @@ class Crawler:
 
             # Due to redirects/canonical links we check for duplicates here
             if document_url in self.visited_urls:
+                print("URL already visited", document_url)
                 return
+
+            if exact_url and not document_url.startswith(exact_url):
+                print("exact: not an exact URL", document_url)
+                return
+
             # Add original url to avoid future duplicate redirect links
             self.visited_urls.add(url)
             self.visited_urls.add(document_url)
@@ -207,7 +231,7 @@ class Crawler:
             document_metadata: list[dict[str, str]] | None = extract_metadata(soup)
 
             # Remove header and footer from document
-            for tag in soup.find_all(is_header_or_footer):
+            for tag in soup.find_all(is_header_or_footer_or_nav):
                 tag.decompose()
             # Find where main content starts
             document_main_content: list[BeautifulSoup] = find_main_content(soup)
@@ -230,14 +254,19 @@ class Crawler:
             document_urls = remove_outside_urls(document_urls, self.webpage_url)
 
             # Recursively visit each url in document_urls
-            for url in document_urls:
+            for document_url in document_urls:
                 # Avoid already visited redirect links and check depth
-                if url not in self.visited_urls and self.curr_depth <= self.max_depth:
+                if (
+                    document_url not in self.visited_urls
+                    and self.curr_depth <= self.max_depth
+                ):
                     self.curr_depth += 1
-                    self.scrape(url)
+                    self.scrape(url, exact_url)
 
             # Save document with UID filename
-            with open("documents/" + str(uuid4()) + ".json", "w") as d:
+            with open(
+                "./documents/" + str(uuid4()) + ".json", "w", encoding="utf-8"
+            ) as d:
                 d.write(
                     jsonify_document(
                         document_url,
@@ -247,6 +276,7 @@ class Crawler:
                         document_plain_text,
                     )
                 )
+                # pylint: disable=broad-exception-caught
         except Exception as e:
             # Currently, only way to fail is for webpage to be unreachable.
             # Or, requests exceeds maximum amount of redirects, which is
@@ -257,6 +287,7 @@ class Crawler:
 
 
 def main():
+    """Crawler main"""
     # Parse command line arguments
     parser = ArgumentParser(
         prog="Webpage crawler",
@@ -264,16 +295,22 @@ def main():
     parser.add_argument(
         "url", help="Full url of webpage where to begin crawling.", type=str
     )
+    parser.add_argument(
+        "--exact", action="store_true", help="Use exact URL without normalization."
+    )
     args = parser.parse_args()
+
+    if args.exact:
+        print("Using exact URL matching")
 
     # Normalize webpage url
     webpage_url: str = url_normalize(args.url)
 
     # Crawl webpage
     crawler = Crawler()
-    crawler.scrape(webpage_url)
+    crawler.scrape(webpage_url, args.url if args.exact else None)
 
-    print(f"Crawling complete.")
+    print("Crawling complete.")
 
 
 if __name__ == "__main__":

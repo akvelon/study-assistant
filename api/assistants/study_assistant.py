@@ -4,6 +4,7 @@ from pydantic import BaseSettings
 import openai
 from settings import settings
 from api.endpoints.search import search_engine
+from api.endpoints.user import User
 from api.endpoints.schemas import (
     MessageAttachment,
     Message,
@@ -11,7 +12,6 @@ from api.endpoints.schemas import (
     MessagesResponse,
 )
 from api.assistants.history.manager import HistoryManager
-from api.endpoints.user import User
 
 history_manager = HistoryManager()
 
@@ -47,7 +47,10 @@ class StudyAssistant(StudyAssistantSettings):
     """Study assistant class"""
 
     async def generate_response(
-        self, request: MessagesRequest, user: User | None
+        self,
+        request: MessagesRequest,
+        user: User,
+        school_id: int,
     ) -> MessagesResponse:
         """Generates response for answer"""
         # Places the system prompt at beginning of list
@@ -55,8 +58,7 @@ class StudyAssistant(StudyAssistantSettings):
         # Appends the rest of the conversation
         for message in request.messages:
             messages.append({"role": message.role, "content": message.content})
-
-        documents = await search_engine.search_text_vectors(request)
+        documents = await search_engine.search_text_vectors(request, school_id)
         document = documents[0] if len(documents) else None
         if document:
             messages.append(search_engine.get_system_message(document))
