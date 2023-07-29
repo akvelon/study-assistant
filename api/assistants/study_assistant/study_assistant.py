@@ -29,7 +29,7 @@ def parse_prompt(file: str) -> str:
 class StudyAssistantSettings(BaseSettings):
     """read file and return as string"""
 
-    prompt = parse_prompt("api/assistants/study_assistant.txt")
+    prompt = parse_prompt("api/assistants/study_assistant/study_assistant.txt")
 
     model: str = "gpt-3.5-turbo"
     greeting: str = ""
