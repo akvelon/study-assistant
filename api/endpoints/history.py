@@ -20,7 +20,7 @@ async def get_history_from_user_id(
     """Returns a list of user's history"""
     try:
         history = history_db.get_all_history_by_user_id(user.id)
-        return history
+        return HistoryResponse(history=history)
     except InvalidUserIdException as error:
         raise HTTPException(status_code=404, detail="User not found") from error
     except HistoryDbException as error:
