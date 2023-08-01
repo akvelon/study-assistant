@@ -73,23 +73,29 @@ class StudyAssistant(StudyAssistantSettings):
         )
 
         attachments = []
-
         # Attach document to user message content
         if document:
-            image_src = (
-                document.document.image_metadata[0]["src"]
-                if document.document.image_metadata
-                else None
+            include_doc = search_engine.should_search_docs(
+                gpt_response["choices"][0]["message"]["content"],
+                0.5,
+                school_id,
+                [document.document],
             )
-            attachments.append(
-                MessageAttachment(
-                    id=document.document.id,
-                    title=document.document.title,
-                    summary=document.document.summary,
-                    url=document.document.url,
-                    image=image_src,
+            if include_doc:
+                image_src = (
+                    document.document.image_metadata[0]["src"]
+                    if document.document.image_metadata
+                    else None
                 )
-            )
+                attachments.append(
+                    MessageAttachment(
+                        id=document.document.id,
+                        title=document.document.title,
+                        summary=document.document.summary,
+                        url=document.document.url,
+                        image=image_src,
+                    )
+                )
 
         # Convert to Message schema
         response_message = Message(

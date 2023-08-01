@@ -68,18 +68,24 @@ class SearchEngine:
         openai.api_key = settings.openai_key
         self.documents = self.get_documents_from_index()
 
-    def should_search_docs(self, messages, school_id=default_school_id) -> bool:
+    def should_search_docs(
+        self,
+        content: str,
+        threshold: float,
+        school_id=default_school_id,
+        documents_entries: list = None,
+    ) -> bool:
         """Function for comparing texts and check if it fit for requirements"""
-        threshold = 0.155
-        message_content = messages[-1].content
-        msg_vector = generate_vectors(message_content)
+        if documents_entries is None:
+            documents_entries = self.documents
+        msg_vector = generate_vectors(content)
         max_cosine = 0
-        for document in self.documents:
+        for document in documents_entries:
             if document.school_id == school_id or document.type == "general":
                 doc_vector = generate_vectors(document.summary)
                 cosine = cosine_similarity_for_attachments(doc_vector, msg_vector)
                 max_cosine = max(cosine, max_cosine)
-        print("text similarity:", max_cosine, 'for "' + message_content + '"')
+        print("text similarity:", max_cosine, 'for "' + content + '"')
         return max_cosine > threshold
 
     def get_documents_from_index(self):
@@ -128,9 +134,10 @@ class SearchEngine:
         self,
         request: MessagesRequest,
         school_id=default_school_id,
-    ) -> list[DocumentEntry]:
+    ) -> list[SearchDocument]:
         """Function for call text comparing and search engine"""
-        if self.should_search_docs(request.messages, school_id):
+        message_content = request.messages[-1].content
+        if self.should_search_docs(message_content, 0.155, school_id, self.documents):
             embeddings = self.generate_embeddings(request)
             return self.search_documents(embeddings, school_id)
         return []
