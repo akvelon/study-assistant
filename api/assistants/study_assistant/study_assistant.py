@@ -13,6 +13,7 @@ from api.endpoints.schemas import (
     MessagesResponse,
 )
 from api.assistants.history.manager import HistoryManager
+from api.db.schools import schools_db
 
 history_manager = HistoryManager()
 
@@ -61,6 +62,18 @@ class StudyAssistant(StudyAssistantSettings):
             messages.append({"role": message.role, "content": message.content})
         documents = await search_engine.search_text_vectors(request, school_id)
         document = documents[0] if len(documents) else None
+        if user:
+            school_name = schools_db.get_school_by_id(user.schoolId)
+            messages.append(
+                {
+                    "role": "system",
+                    "content": f"""
+                      For the response, take into account the following information:"
+                      the user studies at the {school_name}
+                    """,
+                }
+            )
+
         if document:
             messages.append(search_engine.get_system_message(document))
 
