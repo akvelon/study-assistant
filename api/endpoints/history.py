@@ -6,7 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import Field
 from fastapi_pagination import Page, paginate
 
-from api.endpoints.schemas import HistoryResponse
+from api.endpoints.schemas import HistoryResponse, History
 from api.endpoints.user import get_current_user
 from api.db.history import history_db, HistoryDbException, InvalidUserIdException
 
@@ -36,7 +36,7 @@ Page = Page.with_custom_options(
 @history_router.get("/paged")
 async def get_history_from_user_id_paged(
     user: Annotated[str, Depends(get_current_user)],
-) -> Page[HistoryResponse]:
+) -> Page[History]:
     """Returns a paginated list of user's history"""
     try:
         history = history_db.get_all_history_by_user_id(user.id)
