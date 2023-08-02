@@ -1,10 +1,12 @@
 """
     Users database 
 """
+import hashlib
 import os
 import sqlite3
-import hashlib
 import uuid
+from contextlib import closing
+
 from pydantic import BaseModel
 
 from settings import settings
@@ -47,7 +49,6 @@ class UsersDB:
         self.db_path = db_path
         try:
             self.connection = sqlite3.connect(self.db_path)
-            self.cursor = self.connection.cursor()
 
             self.create_database_if_not_exists()
         except sqlite3.Error as ex:
@@ -59,23 +60,24 @@ class UsersDB:
 
     def create_database_if_not_exists(self):
         """Creates auth_* tables if needed"""
-        self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS auth_users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    email VARCHAR NOT NULL,
-                    school_id INTEGER NOT NULL REFERENCES schools(id),
-                    password_hash BLOB NOT NULL,
-                    salt BLOB NOT NULL
-            )"""
-        )
+        with closing(self.connection.cursor()) as cursor:
+            cursor.execute(
+                """CREATE TABLE IF NOT EXISTS auth_users (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        email VARCHAR NOT NULL,
+                        school_id INTEGER NOT NULL REFERENCES schools(id),
+                        password_hash BLOB NOT NULL,
+                        salt BLOB NOT NULL
+                )"""
+            )
 
-        self.cursor.execute(
-            """CREATE TABLE IF NOT EXISTS auth_tokens (
-                    user_id INTEGER PRIMARY KEY,
-                    token TEXT,
-                    FOREIGN KEY (user_id) REFERENCES auth_users(id)
-            )"""
-        )
+            cursor.execute(
+                """CREATE TABLE IF NOT EXISTS auth_tokens (
+                        user_id INTEGER PRIMARY KEY,
+                        token TEXT,
+                        FOREIGN KEY (user_id) REFERENCES auth_users(id)
+                )"""
+            )
 
         self.connection.commit()
 
@@ -89,37 +91,41 @@ class UsersDB:
         # First quary to get user_id form auth_tokens table, then second quary
         # to get user data from auth_users table with user_id.
         # Might not be needed after get_user recieves id instead of email
-        self.cursor.execute(
-            """
-            SELECT
-                auth_users.id,
-                auth_users.email,
-                auth_users.school_id,
-                auth_users.password_hash,
-                auth_users.salt,
-                auth_tokens.token
-            FROM
-                auth_users
-            INNER JOIN
-                auth_tokens
-            ON
-                auth_users.id = auth_tokens.user_id
-            WHERE
-                auth_users.email = ?
-        """,
-            (email,),
-        )
-        row = self.cursor.fetchone()
+        with closing(self.connection.cursor()) as cursor:
+            cursor.execute(
+                """
+                SELECT
+                    auth_users.id,
+                    auth_users.email,
+                    auth_users.school_id,
+                    auth_users.password_hash,
+                    auth_users.salt,
+                    auth_tokens.token
+                FROM
+                    auth_users
+                INNER JOIN
+                    auth_tokens
+                ON
+                    auth_users.id = auth_tokens.user_id
+                WHERE
+                    auth_users.email = ?
+            """,
+                (email,),
+            )
+            row = cursor.fetchone()
 
-        if not row:
-            return None
+            if not row:
+                return None
 
-        return AuthEntry(*row)
+            return AuthEntry(*row)
 
     def add_token(self, user_id, token):
         """Add token for the user id specified"""
-        insert_token_sql = """INSERT INTO auth_tokens (user_id, token) VALUES (?, ?)"""
-        self.cursor.execute(insert_token_sql, [user_id, token])
+        with closing(self.connection.cursor()) as cursor:
+            insert_token_sql = (
+                """INSERT INTO auth_tokens (user_id, token) VALUES (?, ?)"""
+            )
+            cursor.execute(insert_token_sql, [user_id, token])
 
         self.connection.commit()
 
@@ -130,25 +136,27 @@ class UsersDB:
         password_hash = get_pass_hash(user.password, salt)
 
         # Insert user data
-        insert_user_sql = """INSERT INTO auth_users
-                            (email, school_id, password_hash, salt) 
-                            VALUES (?, ?, ?, ?)
-                        """
-        self.cursor.execute(
-            insert_user_sql, [user.email, user.schoolId, password_hash, salt]
-        )
+        with closing(self.connection.cursor()) as cursor:
+            insert_user_sql = """INSERT INTO auth_users
+                                (email, school_id, password_hash, salt) 
+                                VALUES (?, ?, ?, ?)
+                            """
+            cursor.execute(
+                insert_user_sql, [user.email, user.schoolId, password_hash, salt]
+            )
 
-        # Get the last inserted user ID
-        user_id = self.cursor.lastrowid
+            # Get the last inserted user ID
+            user_id = cursor.lastrowid
 
-        # Finish
-        self.connection.commit()
-        return user_id
+            # Finish
+            self.connection.commit()
+            return user_id
 
     def change_school_id(self, user, new_id):
         """Replace school id of a user with the given id"""
-        update_query = """UPDATE auth_users SET school_id = ? WHERE id = ?"""
-        self.cursor.execute(update_query, (new_id, user.id))
+        with closing(self.connection.cursor()) as cursor:
+            update_query = """UPDATE auth_users SET school_id = ? WHERE id = ?"""
+            cursor.execute(update_query, (new_id, user.id))
 
         self.connection.commit()
 
