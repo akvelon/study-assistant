@@ -69,10 +69,11 @@ class SchoolsDB:
 
     def get_school_by_id(self, school_id):
         """Returns the title of the school with the given ID"""
-        self.cursor.execute("SELECT title FROM schools WHERE id = ?", (school_id,))
-        result = self.cursor.fetchone()
-        if result:
-            return result[0]
+        with closing(self.connection.cursor()) as cursor:
+            cursor.execute("SELECT title FROM schools WHERE id = ?", (school_id,))
+            result = cursor.fetchone()
+            if result:
+                return result[0]
         return None
 
 
