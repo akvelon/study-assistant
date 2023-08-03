@@ -1,3 +1,10 @@
+# Study Assistant
+
+Study Assistant is a smart assistant that helps students with their studies. It can answer questions about any subject, provide information about school or college events, and even help students find scholarships and internships.
+
+Study Assistant uses its own searching, indexing, and crawling capabilities to keep its information up to date. This means that students can always be sure that they are getting the most accurate and up-to-date information possible.
+
+The repository contains the backend service code.
 
 ## Running locally via Docker
 
