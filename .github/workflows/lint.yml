@@ -26,6 +26,7 @@ jobs:
           pip install pylint black pre-commit
       - name: Run linters
         run: |
+          git reflog
           black --version
           pylint --version
           mkdir ./pylint
