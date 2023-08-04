@@ -23,6 +23,8 @@ jobs:
           pip install pylint black pre-commit
       - name: Run linters
         run: |
+          pwd
+          git --version
           black --version
           pylint --version
           mkdir ./pylint
