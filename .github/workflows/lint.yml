@@ -15,6 +15,9 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-python@v3
+      - name: Install requirements
+        run: |
+          pip install pylint black
       - uses: pre-commit/action@v3.0.0
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
