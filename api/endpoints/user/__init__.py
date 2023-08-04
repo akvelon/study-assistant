@@ -1,3 +1,4 @@
+"""User routes shared code"""
 import re
 import jwt
 from fastapi import APIRouter, Security, HTTPException, status
@@ -11,6 +12,8 @@ user_router = APIRouter(prefix="/user", tags=[""])
 
 
 class User(BaseModel):
+    """User entry"""
+
     id: int
     email: str = ""
     schoolId: int = 0
@@ -66,7 +69,7 @@ async def get_current_user(token: str = Security(APIKeyHeader(name="Authorizatio
 
     except Exception as error:
         print(error)
-        raise credentials_exception
+        raise credentials_exception from error
 
     check_email(token_data.email)
     db_user = users_db.get_user(token_data.email)
@@ -79,16 +82,12 @@ async def get_current_user(token: str = Security(APIKeyHeader(name="Authorizatio
 async def get_current_user_optional(
     token: str | None = Security(APIKeyHeader(name="Authorization", auto_error=False)),
 ):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    """Get user by auth token if present"""
     if token is None:
         return None
-    else:
-        return await get_current_user(token)
+    return await get_current_user(token)
 
 
+# pylint: disable=wrong-import-position
 import api.endpoints.user.auth
 import api.endpoints.user.school

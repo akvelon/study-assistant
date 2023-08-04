@@ -1,6 +1,4 @@
-"""
-    School update endpoint
-"""
+"""School update endpoint"""
 from fastapi import Depends
 from pydantic import BaseModel
 from typing_extensions import Annotated
@@ -10,11 +8,13 @@ from api.db.users import users_db
 
 
 class UpdateSchoolRequest(BaseModel):
+    """Update school request entry"""
+
     schoolId: int
 
 
 class UpdateSchoolResponse(User):
-    pass
+    """Update school response entry"""
 
 
 @user_router.post("/school")
