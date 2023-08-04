@@ -1,6 +1,6 @@
 # Study Assistant
 
-[![Lint Python](https://github.com/OEvgeny/assistant/actions/workflows/lint.yml/badge.svg)](https://github.com/OEvgeny/assistant/actions/workflows/lint.yml)
+[![Lint Python](https://github.com/akvelon/study-assistant/actions/workflows/lint.yml/badge.svg)](https://github.com/akvelon/study-assistant/actions/workflows/lint.yml)
 
 Study Assistant is a smart assistant that helps students with their studies. It can answer questions about any subject, provide information about school or college events, and even help students find scholarships and internships.
 
