@@ -28,7 +28,7 @@ jobs:
           mkdir ./pylint
           pre-commit run --from-ref origin/${{ github.base_ref }} --to-ref ${{ github.sha }}      
       - name: Upload artifacts
-        uses: actions/upload-artifacts@v2
+        uses: actions/upload-artifact@v3
         with:
           name: pylint
           path: ./pylint/
