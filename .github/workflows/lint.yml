@@ -1,6 +1,10 @@
 name: Lint Python
 
 on:
+  types: [opened, reopened, synchronize, edited]
+  branches:
+    - main
+    - lint-action
   pull_request:
     paths:
       - '**.py'
