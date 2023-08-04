@@ -5,6 +5,8 @@ on:
     types: [opened, reopened, synchronize]
     branches:
       - main
+      - lint-action
+      - lint-test
     paths:
         - '**.py'
 
