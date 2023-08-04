@@ -18,13 +18,14 @@ jobs:
         run: |
           apk add git
       - uses: actions/checkout@v2
+      - uses: actions/checkout@v2
+        with:
+          ref: ${{ github.base_ref }}
       - name: Install requirements
         run: |
           pip install pylint black pre-commit
       - name: Run linters
         run: |
-          pwd
-          git --version
           black --version
           pylint --version
           mkdir ./pylint
