@@ -1,3 +1,4 @@
+"""Routes available from the API"""
 from fastapi import APIRouter
 
 from api.endpoints.health import health_router
