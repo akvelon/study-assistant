@@ -18,9 +18,6 @@ jobs:
         run: |
           apk add git
       - uses: actions/checkout@v2
-      - name: Fetch base ref
-        run: |
-          git fetch origin ${{ github.base_ref }}
       - name: Install requirements
         run: |
           pip install pylint black pre-commit
@@ -29,7 +26,7 @@ jobs:
           black --version
           pylint --version
           mkdir ./pylint
-          pre-commit run --from-ref origin/${{ github.base_ref }} --to-ref ${{ github.sha }}      
+          pre-commit run --from-ref HEAD~1 --to-ref ${{ github.sha }}
       - name: Upload artifacts
         uses: actions/upload-artifact@v3
         with:
