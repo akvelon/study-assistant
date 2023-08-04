@@ -1,0 +1,30 @@
+name: Lint Python
+
+on:
+  pull_request:
+    paths:
+      - '**.py'
+
+jobs:
+  lint:
+    container: python:3.11-alpine
+    steps:
+      - name: Install Git
+        run: |
+          apk add git
+      - uses: actions/checkout@v2
+      - name: Install requirements
+        run: |
+          pip install -r requirements.txt
+      - name: Run linters
+        run: |
+          black --version
+          pylint --version
+          mkdir ./pylint
+          pre-commit run --from-ref origin/${{ github.base_ref }} --to-ref ${{ github.sha }}      
+      - name: Upload artifacts
+        uses: actions/upload-artifacts@v2
+        with:
+          name: pylint
+          path: ./pylint/
+          if-no-files-found: error
